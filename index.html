@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可乐雪碧模拟器</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .cup {
+            width: 150px;
+            height: 300px;
+            border-radius: 10px;
+            background-color: white;
+            border: 2px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            padding: 10px;
+            overflow: hidden;
+            margin: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5列 */
+            grid-gap: 2px; /* 设置方块之间的间隔 */
+        }
+
+        .block {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+
+        .coke {
+            background-color: #D99C76;
+        }
+
+        .sprite {
+            background-color: #CEE9FD;
+        }
+
+        .selected {
+            outline: 2px solid red;
+        }
+
+        .label {
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .control-buttons button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, #6e9acb, #5679d1);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .control-buttons button:hover {
+            background: linear-gradient(135deg, #5679d1, #6e9acb);
+        }
+
+        .control-panel button {
+            font-size: 16px;
+            padding: 10px 15px;
+            margin: 10px;
+            background: linear-gradient(135deg, #ff9a9e, #f6a09f);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .control-panel button:hover {
+            background: linear-gradient(135deg, #f6a09f, #ff9a9e);
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 2px dashed #5679d1;
+            background-color: rgba(86, 121, 209, 0.2);
+            pointer-events: none;
+        }
+
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div>
+        <div class="label">可乐杯</div>
+        <div class="cup" id="cokeCup"></div>
+    </div>
+
+    <!-- 中间控制按钮，垂直排列 -->
+    <div class="control-buttons">
+        <button onclick="moveSelectedBlocks('spriteCup')">
+            移到雪碧杯
+        </button>
+        <button onclick="moveSelectedBlocks('cokeCup')">
+            移到可乐杯
+        </button>
+    </div>
+
+    <div>
+        <div class="label">雪碧杯</div>
+        <div class="cup" id="spriteCup"></div>
+    </div>
+</div>
+
+<div class="control-panel">
+    <button onclick="randomMixBoth()">随机混合</button>
+    <button onclick="arrange()">按顺序排列</button>
+</div>
+
+<script>
+// 初始化杯子中的方块
+let cokeCup = document.getElementById('cokeCup');
+let spriteCup = document.getElementById('spriteCup');
+let selectedBlocks = [];
+let selectionBox = null; // 用于框选的盒子
+let startX, startY, isSelecting = false;
+
+function initialize() {
+    // 初始化可乐杯（50个块）
+    for (let i = 0; i < 50; i++) {
+        let block = document.createElement('div');
+        block.classList.add('block', 'coke');
+        block.onclick = () => toggleSelect(block); // 添加点击事件
+        cokeCup.appendChild(block);
+    }
+
+    // 初始化雪碧杯（50个块）
+    for (let i = 0; i < 50; i++) {
+        let block = document.createElement('div');
+        block.classList.add('block', 'sprite');
+        block.onclick = () => toggleSelect(block); // 添加点击事件
+        spriteCup.appendChild(block);
+    }
+
+    document.addEventListener('mousedown', startSelection);
+    document.addEventListener('mousemove', moveSelection);
+    document.addEventListener('mouseup', endSelection);
+}
+
+// 切换单个方块的选中状态
+function toggleSelect(block) {
+    if (block.classList.contains('selected')) {
+        block.classList.remove('selected');
+        selectedBlocks = selectedBlocks.filter(b => b !== block); // 取消选择
+    } else {
+        block.classList.add('selected');
+        selectedBlocks.push(block); // 添加到选中的块
+    }
+    console.log("Selected blocks after toggle:", selectedBlocks); // 查看选中方块的状态
+}
+
+// 开始框选
+function startSelection(event) {
+    if (event.target.classList.contains('block')) return; // 点击方块时不触发框选
+    isSelecting = true;
+    startX = event.pageX;
+    startY = event.pageY;
+
+    // 创建框选区域
+    selectionBox = document.createElement('div');
+    selectionBox.classList.add('selection-box');
+    document.body.appendChild(selectionBox);
+
+    selectionBox.style.left = startX + 'px';
+    selectionBox.style.top = startY + 'px';
+}
+
+// 移动框选
+function moveSelection(event) {
+    if (!isSelecting) return;
+
+    const currentX = event.pageX;
+    const currentY = event.pageY;
+
+    // 计算框选的宽度和高度
+    const width = Math.abs(currentX - startX);
+    const height = Math.abs(currentY - startY);
+
+    // 设置框选的样式和位置
+    selectionBox.style.width = width + 'px';
+    selectionBox.style.height = height + 'px';
+    selectionBox.style.left = Math.min(currentX, startX) + 'px';
+    selectionBox.style.top = Math.min(currentY, startY) + 'px';
+
+    // 检查哪些方块在框选范围内
+    checkSelection();
+}
+
+// 检查哪些方块在框选范围内
+function checkSelection() {
+    const selectionRect = selectionBox.getBoundingClientRect();
+    const allBlocks = document.querySelectorAll('.block');
+
+    selectedBlocks = [];
+
+    allBlocks.forEach(block => {
+        const blockRect = block.getBoundingClientRect();
+
+        if (
+            blockRect.left >= selectionRect.left &&
+            blockRect.right <= selectionRect.right &&
+            blockRect.top >= selectionRect.top &&
+            blockRect.bottom <= selectionRect.bottom
+        ) {
+            block.classList.add('selected');
+            selectedBlocks.push(block);
+        } else {
+            block.classList.remove('selected');
+        }
+    });
+    console.log("Blocks selected by box selection:", selectedBlocks);
+}
+
+// 结束框选
+function endSelection() {
+    if (selectionBox) {
+        selectionBox.remove();
+        selectionBox = null;
+    }
+    isSelecting = false;
+}
+
+// 将选择的方块移到另一个杯子
+function moveSelectedBlocks(targetCupId) {
+    let targetCup = document.getElementById(targetCupId);
+    console.log("Target cup:", targetCup); // 检查目标杯子
+    console.log("Selected blocks to move:", selectedBlocks); // 检查待移动的方块
+    selectedBlocks.forEach(block => {
+        block.classList.remove('selected');
+        targetCup.appendChild(block); // 移到目标杯子
+    });
+    selectedBlocks = []; // 清空选择
+    console.log("Remaining selected blocks after move:", selectedBlocks); // 检查是否清空
+}
+
+// 混合两个杯子
+function randomMixBoth() {
+    randomMix('cokeCup');
+    randomMix('spriteCup');
+}
+
+// 混合功能
+function randomMix(cupId) {
+    let cup = document.getElementById(cupId);
+    let blocks = Array.from(cup.getElementsByClassName('block'));
+    blocks.sort(() => Math.random() - 0.5); // 随机排序
+    cup.innerHTML = ''; // 清空原来的杯子
+    blocks.forEach(block => cup.appendChild(block)); // 重新排列
+}
+
+// 按顺序排列
+function arrange() {
+    let cokeBlocks = Array.from(cokeCup.getElementsByClassName('block'));
+    let spriteBlocks = Array.from(spriteCup.getElementsByClassName('block'));
+    
+    cokeBlocks.sort((a, b) => a.classList.contains('sprite') - b.classList.contains('sprite'));
+    spriteBlocks.sort((a, b) => a.classList.contains('coke') - b.classList.contains('coke'));
+    
+    cokeCup.innerHTML = '';
+    spriteCup.innerHTML = '';
+    
+    cokeBlocks.forEach(block => cokeCup.appendChild(block));
+    spriteBlocks.forEach(block => spriteCup.appendChild(block));
+}
+
+// 初始化杯子内容
+initialize();
+</script>
+
+</body>
+</html>
